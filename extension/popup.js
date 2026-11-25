@@ -1,4 +1,5 @@
-// The toolbar popup: connection state, logins for this website, search, and a password generator.
+// The toolbar popup: connection state, logins for this website, adding one by hand, search, and a
+// password generator.
 
 const ext = globalThis.browser ?? globalThis.chrome;
 const ask = (msg) => ext.runtime.sendMessage(msg).catch((e) => ({ ok: false, error: String(e) }));
@@ -118,9 +119,12 @@ async function render() {
   const genOut = h("code", {}, "");
   const genBox = h("div", { class: "gen" }, genOut, h("button", { class: "icon-btn", onclick: () => genOut.textContent && copy(genOut.textContent, "Password", true) }, "Copy"));
   genBox.hidden = true;
+  const add = h("button", { class: "plain add", onclick: () => addForm(host) }, "+ Add a login for this website");
+  add.hidden = !onWeb;
   screen(
     h("h2", {}, onWeb ? `Logins for ${host}` : "This page"),
     here,
+    add,
     search,
     results,
     h("div", { class: "box" },
@@ -136,7 +140,68 @@ async function render() {
   if (!onWeb) return here.replaceChildren(h("p", { class: "muted" }, "Open a website to see its logins."));
   const r = await ask({ type: "popupLogins", url: tab.url });
   if (!r?.ok) return here.replaceChildren(h("p", { class: "err" }, r?.error ?? "Couldn't load logins."));
-  here.replaceChildren(...(r.r.length ? r.r.map((l) => loginRow(l, true)) : [h("p", { class: "muted" }, "No logins saved for this website. Sign in, and Sompio offers to save it.")]));
+  here.replaceChildren(...(r.r.length ? r.r.map((l) => loginRow(l, true)) : [h("p", { class: "muted" }, "No logins saved for this website yet. Add one below, or sign in and Sompio offers to save it.")]));
+}
+
+/** Add a login for the website you're on. It goes straight into your Vault in Sompio. */
+function addForm(host) {
+  const name = h("input", { type: "text", value: host, "aria-label": "Name", autocomplete: "off" });
+  const user = h("input", { type: "text", placeholder: "you@example.com", "aria-label": "Username or email", autocomplete: "off", spellcheck: "false" });
+  const pass = h("input", { type: "password", "aria-label": "Password", autocomplete: "new-password", spellcheck: "false" });
+  const show = h("button", { class: "icon-btn", type: "button", title: "Show or hide the password", onclick: () => {
+    pass.type = pass.type === "password" ? "text" : "password";
+    show.textContent = pass.type === "password" ? "Show" : "Hide";
+  } }, "Show");
+  const gen = h("button", { class: "icon-btn", type: "button", title: "Make up a strong password", onclick: async () => {
+    const r = await ask({ type: "generate" });
+    if (r?.ok) {
+      pass.value = r.r.password;
+      pass.type = "text";
+      show.textContent = "Hide";
+    }
+  } }, "Generate");
+  const err = h("p", { class: "err", role: "alert" });
+  err.hidden = true;
+  const fail = (t) => {
+    err.textContent = t;
+    err.hidden = false;
+  };
+  const save = h("button", { class: "primary", type: "submit" }, "Save to Vault");
+  const form = h("form", { class: "add-form" },
+    h("h2", {}, `New login for ${host}`),
+    h("label", {}, h("span", {}, "Name"), name),
+    h("label", {}, h("span", {}, "Username or email"), user),
+    h("label", {}, h("span", {}, "Password"), h("span", { class: "pw-row" }, pass, show, gen)),
+    err,
+    h("div", { class: "row" }, save, h("button", { class: "plain", type: "button", onclick: () => render() }, "Cancel")),
+  );
+  const send = async (replace) => {
+    save.disabled = true;
+    const r = await ask({ type: "popupSave", url: tab.url, title: name.value.trim(), username: user.value.trim(), password: pass.value, replace });
+    save.disabled = false;
+    if (r?.ok) {
+      toast("Saved to your Vault.");
+      return render();
+    }
+    if (r?.exists) {
+      err.hidden = true;
+      return form.replaceChildren(
+        h("p", {}, h("b", {}, `There's already a login for ${user.value.trim() || "this website"} here.`)),
+        h("p", { class: "muted" }, "Replace its password with the new one?"),
+        h("div", { class: "row" },
+          h("button", { class: "primary", type: "button", onclick: () => send(r.exists) }, "Replace it"),
+          h("button", { class: "plain", type: "button", onclick: () => render() }, "Keep the old one")),
+      );
+    }
+    fail(r?.error ?? "Couldn't save. Is Sompio still open and unlocked?");
+  };
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+    if (!pass.value) return fail("Type a password, or click Generate.");
+    send(null);
+  });
+  screen(form);
+  (user.value ? pass : user).focus();
 }
 
 function pairScreen(waitingCode) {

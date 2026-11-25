@@ -5,6 +5,7 @@
 <h1 align="center">Sompio Vault for your browser</h1>
 
 <p align="center">
+  <a href="https://chromewebstore.google.com/detail/ibhofkgjkbhmmlmfcnehfknokeipmijp"><img alt="Chrome Web Store" src="https://img.shields.io/badge/Chrome%20Web%20Store-add%20to%20browser-2e7d32"></a>
   <img alt="Chrome, Edge, Brave and Firefox" src="https://img.shields.io/badge/browsers-Chrome%20%7C%20Edge%20%7C%20Brave%20%7C%20Firefox-525a63">
   <a href="LICENSE.md"><img alt="License: FSL-1.1-ALv2" src="https://img.shields.io/badge/license-FSL--1.1--ALv2-525a63"></a>
   <a href="https://ko-fi.com/sompio"><img alt="Donate on Ko-fi" src="https://img.shields.io/badge/donate-Ko--fi-e0483b"></a>
@@ -17,13 +18,14 @@ The Sompio Vault extension fills in and saves website logins from [Sompio](https
 ## Get started
 
 1. Install [Sompio](https://sompio.org) on your computer and set up Vault.
-2. Add the extension to your browser from its store.
+2. Add the extension to your browser from the [Chrome Web Store](https://chromewebstore.google.com/detail/ibhofkgjkbhmmlmfcnehfknokeipmijp) (Chrome, Edge and Brave). Firefox follows soon.
 3. Click the Sompio button in the toolbar and choose **Connect to Sompio**. Sompio shows a code. Check that it matches, then click **Allow**.
 
 ## What it does
 
 - **Fills logins.** A small Sompio button appears in login fields. Click it and pick the account.
 - **Saves new ones.** When you sign in somewhere new, it offers to save the login to Sompio.
+- **Adds logins by hand.** In the toolbar button, add a login for the website you're on. It goes straight into your Vault.
 - **Makes strong passwords** when you sign up.
 
 ## Your data stays yours

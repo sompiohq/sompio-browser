@@ -249,6 +249,16 @@ async function handle(msg, sender) {
     }
 
     // From the popup (an extension page, not a website)
+    case "popupSave": {
+      // Only the popup may add a login: a website can't make one up in your vault.
+      if (fromPage || !/^https?:/.test(msg.url ?? "") || !msg.password) return { ok: false, error: "Nothing to save." };
+      if (!msg.replace) {
+        const logins = await call("logins", { url: msg.url });
+        const same = logins.ok ? logins.r.find((l) => (l.username ?? "") === (msg.username ?? "")) : null;
+        if (same) return { ok: false, exists: same.id };
+      }
+      return call("save", { url: msg.url, title: msg.title || hostOf(msg.url), username: msg.username ?? "", password: msg.password, id: msg.replace ?? "" });
+    }
     case "popupLogins":
       if (fromPage) return null;
       return call("logins", { url: msg.url });

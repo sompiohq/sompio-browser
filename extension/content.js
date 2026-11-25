@@ -275,7 +275,7 @@
     }
     const list = kind === "otp" ? res.r.filter((l) => l.totp) : res.r;
     if (!list.length && kind !== "new") {
-      menu.appendChild(text("div", "note", kind === "otp" ? "No 2FA codes saved for this website." : "No logins saved for this website yet. Sign in, and Sompio offers to save it."));
+      menu.appendChild(text("div", "note", kind === "otp" ? "No 2FA codes saved for this website." : "No logins saved for this website yet. Sign in and Sompio offers to save it, or add one with the Sompio button in your toolbar."));
     }
     for (const l of list) {
       const item = el("button", "item");
