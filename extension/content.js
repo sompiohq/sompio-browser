@@ -369,6 +369,7 @@
     title.appendChild(x);
     b.appendChild(title);
     b.appendChild(text("div", "muted", `${p.host}${p.username ? ` · ${p.username}` : ""}`));
+    if (p.mode === "locked") b.appendChild(text("div", "muted", "Sompio is locked. It's added to your Vault the next time you unlock it."));
     const row = el("div", "row");
     const done = (answer) => {
       ask({ type: "answerSave", answer });

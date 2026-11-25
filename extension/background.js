@@ -182,6 +182,13 @@ async function captured(sender, { username, password, title }) {
   const prefs = (await ext.storage.local.get("prefs")).prefs ?? {};
   if (prefs.offerSave === false || (prefs.never ?? []).includes(hostOf(url))) return { ok: true };
   const logins = await call("logins", { url });
+  if (!logins.ok && logins.code === "locked") {
+    // Sompio is locked: it can still take the login, and adds it to the Vault when you unlock.
+    const all = await pendingAll();
+    all[sender.tab?.id ?? "x"] = { url, host: hostOf(url), username, password, title, mode: "locked", id: null, at: Date.now() };
+    await setPending(all);
+    return { ok: true };
+  }
   if (!logins.ok) return { ok: true };
   const same = logins.r.filter((l) => l.username === username);
   let mode = "new";
@@ -245,6 +252,7 @@ async function handle(msg, sender) {
         return { ok: true };
       }
       if (msg.answer !== "save" && msg.answer !== "update") return { ok: true };
+      if (p.mode === "locked") return call("save", { url: p.url, title: p.title || p.host, username: p.username, password: p.password, id: "" });
       return call("save", { url: p.url, title: p.title || p.host, username: p.username, password: p.password, id: msg.answer === "update" ? p.id : "" });
     }
 
@@ -253,6 +261,8 @@ async function handle(msg, sender) {
       // Only the popup may add a login: a website can't make one up in your vault.
       if (fromPage || !/^https?:/.test(msg.url ?? "") || !msg.password) return { ok: false, error: "Nothing to save." };
       if (!msg.replace) {
+        // While Sompio is locked this can't be checked: the login waits in the locked inbox and
+        // replaces a saved one for the same username when you unlock.
         const logins = await call("logins", { url: msg.url });
         const same = logins.ok ? logins.r.find((l) => (l.username ?? "") === (msg.username ?? "")) : null;
         if (same) return { ok: false, exists: same.id };

@@ -26,6 +26,7 @@ The Sompio Vault extension fills in and saves website logins from [Sompio](https
 - **Fills logins.** A small Sompio button appears in login fields. Click it and pick the account.
 - **Saves new ones.** When you sign in somewhere new, it offers to save the login to Sompio.
 - **Adds logins by hand.** In the toolbar button, add a login for the website you're on. It goes straight into your Vault.
+- **Saves while Sompio is locked.** New logins are locked away and added to your Vault when you unlock. Saved logins can only be read and filled while Sompio is unlocked.
 - **Makes strong passwords** when you sign up.
 
 ## Your data stays yours

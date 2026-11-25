@@ -66,7 +66,7 @@ function loginRow(l, onSite) {
 }
 
 function screen(...kids) {
-  main.replaceChildren(...kids);
+  main.replaceChildren(...kids.filter((k) => k != null && k !== false));
 }
 
 async function render() {
@@ -92,10 +92,13 @@ async function render() {
   }
   if (s.locked) {
     setStatus("Locked", "warn");
+    const onWebLocked = tab && /^https?:/.test(tab.url ?? "");
+    const lockedHost = onWebLocked ? new URL(tab.url).hostname.replace(/^www\./, "") : "";
     return screen(
       h("p", {}, h("b", {}, "Sompio is locked.")),
-      h("p", { class: "muted" }, "Unlock it to fill your logins."),
+      h("p", { class: "muted" }, "Unlock it to fill your logins. You can still save a new one: it's added to your Vault when you unlock."),
       h("button", { class: "primary", onclick: () => ask({ type: "show" }).then(() => window.close()) }, "Unlock Sompio"),
+      onWebLocked && s.paired ? h("button", { class: "plain add", onclick: () => addForm(lockedHost, true) }, "+ Add a login for this website") : null,
     );
   }
   if (!s.paired) return pairScreen(s.waiting);
@@ -144,7 +147,7 @@ async function render() {
 }
 
 /** Add a login for the website you're on. It goes straight into your Vault in Sompio. */
-function addForm(host) {
+function addForm(host, locked = false) {
   const name = h("input", { type: "text", value: host, "aria-label": "Name", autocomplete: "off" });
   const user = h("input", { type: "text", placeholder: "you@example.com", "aria-label": "Username or email", autocomplete: "off", spellcheck: "false" });
   const pass = h("input", { type: "password", "aria-label": "Password", autocomplete: "new-password", spellcheck: "false" });
@@ -169,6 +172,7 @@ function addForm(host) {
   const save = h("button", { class: "primary", type: "submit" }, "Save to Vault");
   const form = h("form", { class: "add-form" },
     h("h2", {}, `New login for ${host}`),
+    locked ? h("p", { class: "muted" }, "Sompio is locked. This login is locked away now and added to your Vault when you unlock.") : null,
     h("label", {}, h("span", {}, "Name"), name),
     h("label", {}, h("span", {}, "Username or email"), user),
     h("label", {}, h("span", {}, "Password"), h("span", { class: "pw-row" }, pass, show, gen)),
@@ -180,7 +184,7 @@ function addForm(host) {
     const r = await ask({ type: "popupSave", url: tab.url, title: name.value.trim(), username: user.value.trim(), password: pass.value, replace });
     save.disabled = false;
     if (r?.ok) {
-      toast("Saved to your Vault.");
+      toast(r.r?.inbox ? "Saved. It's added to your Vault when you unlock Sompio." : "Saved to your Vault.");
       return render();
     }
     if (r?.exists) {
