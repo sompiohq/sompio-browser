@@ -1,0 +1,99 @@
+# Publishes a Sompio Vault version from the code in this repository:
+# builds the store packages, creates the GitHub release with them, and submits the
+# version to the Chrome Web Store and Firefox Add-ons. The stores review it as usual
+# and publish it once approved.
+#
+# Run it from the Actions tab (or `gh workflow run release.yml`):
+#   mode "check"   - only tests that the store keys work; uploads nothing
+#   mode "publish" - releases the version in extension/manifest.json
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "check = test the store keys only, publish = release this version"
+        type: choice
+        options: [check, publish]
+        default: check
+      notes:
+        description: "What changed, one change per line, separated by |"
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+concurrency: release
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      CWS_SERVICE_ACCOUNT_JSON: ${{ secrets.CWS_SERVICE_ACCOUNT_JSON }}
+      CWS_PUBLISHER_ID: ${{ secrets.CWS_PUBLISHER_ID }}
+      AMO_JWT_ISSUER: ${{ secrets.AMO_JWT_ISSUER }}
+      AMO_JWT_SECRET: ${{ secrets.AMO_JWT_SECRET }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install tools
+        run: pip install -q requests pyjwt google-auth
+
+      - name: Build store packages
+        id: build
+        run: |
+          sh build.sh
+          v=$(python3 -c "import json;print(json.load(open('extension/manifest.json'))['version'])")
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+          echo "Sompio Vault $v"
+
+      - name: Test the store keys
+        run: python .github/release.py check
+
+      - name: Stop if this version is already released
+        if: inputs.mode == 'publish'
+        env:
+          NOTES: ${{ inputs.notes }}
+        run: |
+          if gh release view "v${{ steps.build.outputs.version }}" >/dev/null 2>&1; then
+            echo "::error::Version ${{ steps.build.outputs.version }} is already released. Raise the version in extension/manifest.json first."
+            exit 1
+          fi
+          if [ -z "$NOTES" ]; then
+            echo "::error::Add the version notes."
+            exit 1
+          fi
+
+      - name: Write the version notes
+        if: inputs.mode == 'publish'
+        env:
+          NOTES: ${{ inputs.notes }}
+        run: |
+          python3 - <<'PY'
+          import os
+          lines = [l.strip() for l in os.environ["NOTES"].split("|") if l.strip()]
+          open("notes-store.txt", "w").write("\n".join(lines))
+          open("notes-github.md", "w").write("\n".join("- " + l for l in lines) +
+              "\n\nThe attached files are the packages submitted to the Chrome Web Store and Firefox Add-ons.\n")
+          PY
+
+      - name: Create the GitHub release
+        if: inputs.mode == 'publish'
+        run: |
+          v=${{ steps.build.outputs.version }}
+          gh release create "v$v" "dist/sompio-vault-$v-chrome.zip" "dist/sompio-vault-$v-firefox.zip" \
+            --target "${{ github.sha }}" --title "Sompio Vault $v" --notes-file notes-github.md
+
+      - name: Submit to the Chrome Web Store
+        if: inputs.mode == 'publish'
+        run: python .github/release.py chrome "dist/sompio-vault-${{ steps.build.outputs.version }}-chrome.zip"
+
+      - name: Submit to Firefox Add-ons
+        if: inputs.mode == 'publish'
+        run: python .github/release.py firefox "dist/sompio-vault-${{ steps.build.outputs.version }}-firefox.zip" "$(cat notes-store.txt)"
